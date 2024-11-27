@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+message MessageBody {
+  required string nickname = 1;
+  enum Type {
+    ADD = 0;
+    INACTIVITY = 1;
+    DUPLICATE = 2;
+    DISCONNECTED = 3;
+    TEXT = 4;
+  };
+  required Type type = 2;
+  optional string text = 3;
+}
