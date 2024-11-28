@@ -2,18 +2,18 @@
 #include <iostream>
 #include "message.pb.h"
 #include "CLI11.hpp"
-#include <asio.hpp>
+#include <boost/asio.hpp>
 #include "Message.hpp"
 #include "Log.hpp"
 
-#if !defined(ASIO_HAS_POSIX_STREAM_DESCRIPTOR)
-int main() {}
-#else
-
-using asio::ip::tcp;
+//#if !defined(ASIO_HAS_POSIX_STREAM_DESCRIPTOR)
+//int main() {}
+//#else
+//
+using boost::asio::ip::tcp;
 
 struct Client {
-    Client( asio::io_service& io_service, const std::string& address,
+    Client( boost::asio::io_service& io_service, const std::string& address,
             const std::string& port, const std::string& nickname )
         : io_service_( io_service ), socket_( io_service ), nickname_( nickname ),
           input_( io_service, ::dup( STDIN_FILENO ) ),
@@ -31,9 +31,9 @@ private:
     void start_connection_timer()
     {
         LL("%s: start connection timer", nickname_.c_str());
-        connection_timer_.expires_from_now( boost::posix_time::seconds( CONNECTION_SECONDS ) );
-        connection_timer_.async_wait( [this]( const asio::error_code& ) {
-                if( connection_timer_.expires_at() <= asio::deadline_timer::traits_type::now() )
+        connection_timer_.expires_from_now( boost::posix_time::seconds( int(CONNECTION_SECONDS) ) );
+        connection_timer_.async_wait( [this]( const boost::system::error_code& ) {
+                if( connection_timer_.expires_at() <= boost::asio::deadline_timer::traits_type::now() )
                 {
                     LL("%s: connection timer expired", nickname_.c_str());
                     socket_.close();
@@ -49,10 +49,10 @@ private:
     void reconnect()
     {
         LL("%s: reconnecting...", nickname_.c_str());
-        retry_timer_.expires_from_now( boost::posix_time::seconds( RETRY_SECONDS ) );
+        retry_timer_.expires_from_now( boost::posix_time::seconds( int(RETRY_SECONDS) ) );
         LL("%s: waiting for %d seconds...", nickname_.c_str(), RETRY_SECONDS);
-        retry_timer_.async_wait( [this]( const asio::error_code& ec ) {
-                if( retry_timer_.expires_at() <= asio::deadline_timer::traits_type::now() )
+        retry_timer_.async_wait( [this]( const boost::system::error_code& ec ) {
+                if( retry_timer_.expires_at() <= boost::asio::deadline_timer::traits_type::now() )
                 {
                     LL("%s: retry timer expired", nickname_.c_str());
                     connect();
@@ -69,7 +69,7 @@ private:
         LL("%s: connecting...", nickname_.c_str());
         stop_retry_timer();
         start_connection_timer();
-        asio::async_connect( socket_, endpoint_iterator_,
+        boost::asio::async_connect( socket_, endpoint_iterator_,
                              [this]( std::error_code ec, tcp::resolver::iterator )
                              {
                                  stop_connection_timer();
@@ -96,8 +96,8 @@ private:
     void receive_input()
     {
         LL("%s: waiting for input...", nickname_.c_str());
-        asio::async_read_until( input_, input_buffer_, '\n',
-                                [this]( const asio::error_code ec, size_t size )
+        boost::asio::async_read_until( input_, input_buffer_, '\n',
+                                [this]( const boost::system::error_code ec, size_t size )
                                 {
                                     LL("%s: got input", nickname_.c_str());
                                     process_input( ec, size );
@@ -107,8 +107,8 @@ private:
     void receive_message_header()
     {
         LL("%s: receiving message header...", nickname_.c_str());
-        asio::async_read( socket_,
-                          asio::buffer( received_message_.data(), Message::HEADER_SIZE ),
+        boost::asio::async_read( socket_,
+                          boost::asio::buffer( received_message_.data(), Message::HEADER_SIZE ),
                           [this]( std::error_code ec, size_t )
                           {
                               LL("%s: received message header", nickname_.c_str());
@@ -124,8 +124,8 @@ private:
     void receive_message_body()
     {
         LL("%s: receiving message body...", nickname_.c_str());
-        asio::async_read( socket_,
-                          asio::buffer( received_message_.body(), received_message_.body_size() ),
+        boost::asio::async_read( socket_,
+                          boost::asio::buffer( received_message_.body(), received_message_.body_size() ),
                           [this]( std::error_code ec, size_t )
                           {
                               LL("%s: received message body", nickname_.c_str());
@@ -152,8 +152,8 @@ private:
             return;
         }
         LL("%s: message to send (%s,%d)", nickname_.c_str(), message.data(), message.size());
-        asio::async_write( socket_,
-                           asio::buffer( message.data(), message.size() ),
+        boost::asio::async_write( socket_,
+                           boost::asio::buffer( message.data(), message.size() ),
                            [this]( std::error_code ec, size_t )
                            {
                                LL("%s: message sent", nickname_.c_str());
@@ -195,8 +195,8 @@ private:
                 assert(true);   // no way
         }
         LL("%s: output message", nickname_.c_str());
-        asio::async_write( output_, asio::buffer( message_to_output.data(), message_to_output.size() ),
-                           [this]( const asio::error_code &ec, size_t size )
+        boost::asio::async_write( output_, boost::asio::buffer( message_to_output.data(), message_to_output.size() ),
+                           [this]( const boost::system::error_code &ec, size_t size )
                            {
                                if( !ec ) {
                                    receive_message_header();
@@ -206,10 +206,10 @@ private:
                            }
             );
     }
-    void process_input( const asio::error_code& ec, size_t size )
+    void process_input( const boost::system::error_code& ec, size_t size )
     {
         LL("%s: process input (%d,%d)", nickname_.c_str(), size, input_buffer_.size());
-        if( !ec || ec == asio::error::not_found ) {
+        if( !ec || ec == boost::asio::error::not_found ) {
             char buffer[Message::MAX_BODY_SIZE];
             size = input_buffer_.sgetn( buffer, ec ? input_buffer_.size() : size );
             input_buffer_.consume( input_buffer_.size() );
@@ -232,15 +232,15 @@ private:
         io_service_.stop();
     }
 
-    asio::io_service& io_service_;
+    boost::asio::io_service& io_service_;
     tcp::socket socket_;
     Message received_message_;
     std::string nickname_;
-    asio::posix::stream_descriptor input_;
-    asio::posix::stream_descriptor output_;
-    asio::streambuf input_buffer_;
-    asio::deadline_timer connection_timer_;
-    asio::deadline_timer retry_timer_;
+    boost::asio::posix::stream_descriptor input_;
+    boost::asio::posix::stream_descriptor output_;
+    boost::asio::streambuf input_buffer_;
+    boost::asio::deadline_timer connection_timer_;
+    boost::asio::deadline_timer retry_timer_;
     tcp::resolver::iterator endpoint_iterator_;
 };
 
@@ -256,7 +256,7 @@ int main( int argc, char *argv[] )
     CLI11_PARSE(app, argc, argv);
 
     try {
-        asio::io_service io_service;
+        boost::asio::io_service io_service;
         Client client( io_service, address, port, nickname );
         io_service.run();
     }
@@ -267,4 +267,4 @@ int main( int argc, char *argv[] )
 
     return EXIT_SUCCESS;
 }
-#endif
+//#endif

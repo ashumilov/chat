@@ -2,13 +2,15 @@
 
 //#define SPDLOG_ENABLE_SYSLOG
 #include "spdlog/spdlog.h"
+#include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/async.h"
 
 struct Log {
     Log()
     {
-        spdlog::set_async_mode(4096);
+//        spdlog::set_async_mode(4096);
         spdlog::set_level(spdlog::level::info);
-        logger_ = spdlog::basic_logger_st("logger", "log.txt");
+        logger_ = spdlog::basic_logger_st<spdlog::async_factory>("logger", "log.txt");
 //    logger_ = spdlog::syslog_logger("logger", "chat", LOG_PID);
 //    logger_ = spdlog::stdout_color_mt("logger");
     }

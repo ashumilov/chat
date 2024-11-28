@@ -4,17 +4,17 @@
 #include <set>
 #include "message.pb.h"
 #include "CLI11.hpp"
-#include <asio.hpp>
+#include <boost/asio.hpp>
 #include "Message.hpp"
 #include "Log.hpp"
 
-using asio::ip::tcp;
+using boost::asio::ip::tcp;
 
 struct Server;
 struct Session : public std::enable_shared_from_this<Session> {
-    Session( asio::io_service& io_service, tcp::socket socket, Server& server )
+    Session( boost::asio::io_service& io_service, tcp::socket socket, Server& server )
         : io_service_( io_service ), socket_( std::move( socket ) ),
-          server_( server ), inactivity_timer_( io_service, boost::posix_time::seconds( INACTIVITY_SECONDS ) )
+          server_( server ), inactivity_timer_( io_service, boost::posix_time::seconds( int (INACTIVITY_SECONDS) ) )
     {}
     enum { INACTIVITY_SECONDS = 10 };
     enum class Error {
@@ -48,8 +48,8 @@ struct Session : public std::enable_shared_from_this<Session> {
         if( !message.serialized() ) {
             return;
         }
-        asio::async_write( socket_,
-                           asio::buffer( message.data(), message.size() ),
+        boost::asio::async_write( socket_,
+                           boost::asio::buffer( message.data(), message.size() ),
                            [this]( std::error_code ec, size_t )
                            {
                                LL("server: message sent, close");
@@ -62,7 +62,7 @@ struct Session : public std::enable_shared_from_this<Session> {
     {
         LL("server: inactivity timer started");
         inactivity_timer_.async_wait(
-            [this]( const asio::error_code& ec ) {
+            [this]( const boost::system::error_code& ec ) {
                 if( !ec ) {
                     LL("server: inactivity timer expired");
                     error_ = Error::INACTIVITY;
@@ -73,7 +73,7 @@ struct Session : public std::enable_shared_from_this<Session> {
     void restart_inactivity_timer()
     {
         LL("server: trying to restart inactivity timer ");
-        if( inactivity_timer_.expires_from_now( boost::posix_time::seconds( INACTIVITY_SECONDS ) ) > 0 )
+        if( inactivity_timer_.expires_from_now( boost::posix_time::seconds( int(INACTIVITY_SECONDS) ) ) > 0 )
         {
             LL("server: inactivity timer restarted");
             start_inactivity_timer();
@@ -86,7 +86,7 @@ struct Session : public std::enable_shared_from_this<Session> {
     const std::string& nickname() const { return nickname_; }
     Error error() const { return error_; }
 private:
-    asio::io_service& io_service_;
+    boost::asio::io_service& io_service_;
     void receive_message_header();
     void receive_message_body();
     void send_message();
@@ -95,12 +95,12 @@ private:
     Message received_message_;
     std::deque<Message> messages_to_send_;
     std::string nickname_;
-    asio::deadline_timer inactivity_timer_;
+    boost::asio::deadline_timer inactivity_timer_;
     Error error_;
 };
 
 struct Server {
-    Server( asio::io_service& io_service, int port )
+    Server( boost::asio::io_service& io_service, int port )
         : io_service_( io_service ), acceptor_( io_service, tcp::endpoint( tcp::v4(), port )),
           socket_( io_service )
     {
@@ -163,7 +163,7 @@ struct Server {
     }
 
 private:
-    asio::io_service& io_service_;
+    boost::asio::io_service& io_service_;
     tcp::acceptor acceptor_;
     tcp::socket socket_;
     std::set<std::shared_ptr<Session> > sessions_;
@@ -179,8 +179,8 @@ void Session::run()
 void Session::receive_message_header()
 {
     LL("server: receiving message header...");
-    asio::async_read( socket_,
-                      asio::buffer( received_message_.data(), Message::HEADER_SIZE),
+    boost::asio::async_read( socket_,
+                      boost::asio::buffer( received_message_.data(), Message::HEADER_SIZE),
                       [this]( std::error_code ec, size_t )
                       {
                           LL("server: received message header");
@@ -197,8 +197,8 @@ void Session::receive_message_header()
 void Session::receive_message_body()
 {
     LL("server: receiving message body...");
-    asio::async_read( socket_,
-                      asio::buffer( received_message_.body(), received_message_.body_size()),
+    boost::asio::async_read( socket_,
+                      boost::asio::buffer( received_message_.body(), received_message_.body_size()),
                       [this]( std::error_code ec, size_t )
                       {
                           LL("server: message received (%s,%d)", received_message_.data(), received_message_.size());
@@ -219,8 +219,8 @@ void Session::send_message()
 {
     LL("server: sending message message...");
     auto message = messages_to_send_.front();
-    asio::async_write( socket_,
-                       asio::buffer( message.data(), message.size() ),
+    boost::asio::async_write( socket_,
+                       boost::asio::buffer( message.data(), message.size() ),
                        [this]( std::error_code ec, size_t )
                        {
                            LL("server: message sent");
@@ -263,7 +263,7 @@ int main( int argc, char *argv[] )
     CLI11_PARSE(app, argc, argv);
 
     try {
-        asio::io_service io_service;
+        boost::asio::io_service io_service;
         Server server( io_service, port );
         io_service.run();
     }
