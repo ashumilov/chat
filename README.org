@@ -1,15 +1,27 @@
 * Chat server/client
 
+** How to build
+
+#+begin_src shell
+% cmake -Bbuild -Ssrc
+% cmake --build build
+#+end_src
+
+** How to run
+
+#+begin_src shell
+% ./server --port 12345
+% ./client --port 12345 --address localhost --nickname client
+#+end_src
+
 ** Build requirements
 
 - C++11 compiler
 - CMake > 3.11.0
 - asio library (for async I/O)
 - google protobuf v2 (for serialization)
-
-** Other 3rd party libraries used (sources are provided):
-- CLI11 (command line parameters parser)
-- spdlog (logger)
+- CLI11 (command line parameters parser) (sources included)
+- spdlog (logger) (sources included)
 
 ** Logging
 
